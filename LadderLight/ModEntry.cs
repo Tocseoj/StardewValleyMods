@@ -66,9 +66,9 @@ namespace Tocseoj.Stardew.LadderLight {
 		private void OnLocationListChanged(object? sender, LocationListChangedEventArgs e)
 		{
 			// go through each location in e.Added and see if its a mine
-			foreach (MineShaft location in e.Added)
+			foreach (GameLocation location in e.Added)
 			{
-				if (location is not null)
+				if (location is MineShaft shaft)
 				{
 					int laddersPresent = 0;
 					skippedFirstTick = false;
@@ -97,7 +97,7 @@ namespace Tocseoj.Stardew.LadderLight {
 						}
 					}
 					// Debug
-					string debugMessage = $"Level {location.mineLevel}: {laddersPresent} ladders present.";
+					string debugMessage = $"Level {shaft.mineLevel}: {laddersPresent} ladders present.";
 					Monitor.Log(debugMessage, LogLevel.Debug);
 					if (Config.DebugMode)
 						Game1.addHUDMessage(new HUDMessage(debugMessage, HUDMessage.newQuest_type));
