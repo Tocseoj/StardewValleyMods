@@ -10,8 +10,8 @@ This repository contains my SMAPI mods for Stardew Valley.
 
 Active mods:
 
-- **Ladder Light** <small>([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052/) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [source](LadderLight))</small>
-  _Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
+- **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052/) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [source](LadderLight))
+  _Let there be light! Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
 
 ## Compiling the mods
 
@@ -26,10 +26,39 @@ for troubleshooting.
 
 To compile a mod and add it to your game's `Mods` directory:
 
-1. Rebuild the project in [Visual Studio](https://www.visualstudio.com/vs/community/) or [MonoDevelop](https://www.monodevelop.com/).
-   <small>This will compile the code and package it into the mod directory.</small>
+1. Rebuild the project in [Visual Studio Code](https://code.visualstudio.com/) (with the [C# DevKit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension), [Visual Studio](https://www.visualstudio.com/vs/community/), or [MonoDevelop](https://www.monodevelop.com/).
+   - This will compile the code and package it into the mod directory.
 2. Launch the project with debugging.
-   <small>This will start the game through SMAPI and attach the Visual Studio debugger.</small>
+   - This will start the game through SMAPI and attach the Visual Studio debugger.
+   - My `launch.json` config and `tasks.json` are below (using VS Code and running macOS with GOG version of the game).
+
+#### launch.json
+
+```json
+{
+  "name": ".NET Core Launch (console)",
+  "type": "coreclr",
+  "request": "launch",
+  "preLaunchTask": "dotnet: build",
+  "program": "/Applications/Stardew Valley.app/Contents/MacOS/StardewModdingAPI",
+  "args": [],
+  "cwd": "${workspaceFolder}",
+  "stopAtEntry": false,
+  "console": "internalConsole"
+}
+```
+
+#### tasks.json
+
+```json
+{
+  "type": "dotnet",
+  "task": "build",
+  "group": "build",
+  "problemMatcher": [],
+  "label": "dotnet: build"
+}
+```
 
 ### Compiling a mod for release
 
@@ -38,3 +67,7 @@ To package a mod for release:
 1. Switch to `Release` build configuration.
 2. Recompile the mod per the previous section.
 3. Upload the generated `bin/Release/<mod name>-<version>.zip` file from the project folder.
+
+---
+
+> README template is taken directly from [Pathoschild's repository](https://github.com/Pathoschild/StardewMods)
