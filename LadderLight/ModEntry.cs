@@ -20,11 +20,8 @@ namespace Tocseoj.Stardew.LadderLight {
 		/// <summary>The mod configuration.</summary>
 		private ModConfig Config = null!; // set in Entry
 
-		/// <summary>The mine shaft that the player is currently in.</summary>
-		private MineShaft? mineShaft = null;
-
 		/// <summary>Queue of ladders to be processed.</summary>
-		private List<KeyValuePair<Point, bool>> ladderQueue = new List<KeyValuePair<Point, bool>>();
+		private readonly List<KeyValuePair<Point, bool>> ladderQueue = new();
 
 		/// <summary>Whether the first tick has been skipped.</summary>
 		private bool skippedFirstTick = false;
@@ -74,21 +71,30 @@ namespace Tocseoj.Stardew.LadderLight {
 				if (location is not null)
 				{
 					int laddersPresent = 0;
-					mineShaft = location;
 					skippedFirstTick = false;
 					// get generated ladders (creation/objects/npcs)
 					IReflectedField<NetPointDictionary<bool, NetBool>> generatedLadders = Helper.Reflection.GetField<NetPointDictionary<bool, NetBool>>(location, "createLadderDownEvent", false);
 					if (generatedLadders != null) {
-						generatedLadders.GetValue().OnValueAdded += OnLadderLocationAdded;
-						laddersPresent = generatedLadders.GetValue().Count();
-						foreach (KeyValuePair<Point, bool> ladder in generatedLadders.GetValue().Pairs) {
-							ladderQueue.Add(ladder);
+						WeakReference<NetPointDictionary<bool, NetBool>> weakRef = new(generatedLadders.GetValue());
+            if(weakRef.TryGetTarget(out NetPointDictionary<bool, NetBool>? target)) {
+							if (target != null) {
+								target.OnValueAdded += OnLadderLocationAdded;
+								laddersPresent = target.Count();
+								foreach (KeyValuePair<Point, bool> ladder in target.Pairs) {
+									ladderQueue.Add(ladder);
+								}
+							}
 						}
 					}
 					// get placed ladders (from player)
 					IReflectedField<NetVector2Dictionary<bool, NetBool>> placedLadders = Helper.Reflection.GetField<NetVector2Dictionary<bool, NetBool>>(location, "createLadderAtEvent", false);
 					if (placedLadders != null) {
-						placedLadders.GetValue().OnValueAdded += OnLadderLocationAdded;
+						WeakReference<NetVector2Dictionary<bool, NetBool>> weakRef = new(placedLadders.GetValue());
+						if(weakRef.TryGetTarget(out NetVector2Dictionary<bool, NetBool>? target)) {
+							if (target != null) {
+								target.OnValueAdded += OnLadderLocationAdded;
+							}
+						}
 					}
 					// Debug
 					string debugMessage = $"Level {location.mineLevel}: {laddersPresent} ladders present.";
@@ -110,10 +116,10 @@ namespace Tocseoj.Stardew.LadderLight {
 				Game1.addHUDMessage(new HUDMessage(debugMessage, HUDMessage.newQuest_type));
 
 			// Create light source at point
-			mineShaft?.TemporarySprites.Add(
+			Game1.currentLocation.TemporarySprites.Add(
 				new TemporaryAnimatedSprite(
 					"LooseSprites\\Lighting\\lantern",
-					new Rectangle(0, 0, 128 ,  128),
+					new Rectangle(0, 0, 128, 128),
 					9999f, // 75ms per frame
 					1, // 12 frames
 					9999, // 5 times
@@ -134,7 +140,6 @@ namespace Tocseoj.Stardew.LadderLight {
 					lightFade = 0
 			});
 			Monitor.Log("Added light.", LogLevel.Debug);
-
 		}
 	}
 
