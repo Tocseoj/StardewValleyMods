@@ -10,7 +10,7 @@ This repository contains my SMAPI mods for Stardew Valley.
 
 Active mods:
 
-- **Ladder Light** <small>([ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | Nexus | [source](Automate))</small>
+- **Ladder Light** <small>([ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | Nexus | [source](LadderLight))</small>
   _Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
 
 ## Compiling the mods
