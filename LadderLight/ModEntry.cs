@@ -68,6 +68,9 @@ namespace Tocseoj.Stardew.LadderLight {
 			// go through each location in e.Added and see if its a mine
 			foreach (GameLocation location in e.Added)
 			{
+				if (!location.IsActiveLocation())
+        	continue; // shadow location
+
 				if (location is MineShaft shaft)
 				{
 					int laddersPresent = 0;
@@ -116,6 +119,7 @@ namespace Tocseoj.Stardew.LadderLight {
 				Game1.addHUDMessage(new HUDMessage(debugMessage, HUDMessage.newQuest_type));
 
 			// Create light source at point
+			// Idea: make animated stars come off the ladder
 			Game1.currentLocation.TemporarySprites.Add(
 				new TemporaryAnimatedSprite(
 					"LooseSprites\\Lighting\\lantern",
@@ -123,7 +127,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					9999f, // 75ms per frame
 					1, // 12 frames
 					9999, // 5 times
-					point * 64f, // position
+					point * Game1.tileSize, // position
 					flicker: false,
 					flipped: false,
 					-1f,
@@ -139,6 +143,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					lightRadius = 0.33f,
 					lightFade = 0
 			});
+
 			Monitor.Log("Added light.", LogLevel.Debug);
 		}
 	}
