@@ -13,6 +13,11 @@ Active mods:
 - **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052/) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [source](LadderLight))
   _Let there be light! Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
 
+WIP mods:
+
+- **Big Crop Bonus** ([source](BigCropBonus))
+  _Adds a bonus to the selling price of related items when you have a giant crop of it grown. (This stacks!)_
+
 ## Compiling the mods
 
 Installing stable releases from Nexus Mods is recommended for most users. If you really want to
@@ -44,7 +49,8 @@ To compile a mod and add it to your game's `Mods` directory:
   "args": [],
   "cwd": "${workspaceFolder}",
   "stopAtEntry": false,
-  "console": "internalConsole"
+  "console": "internalConsole",
+  "requireExactSource": false
 }
 ```
 
