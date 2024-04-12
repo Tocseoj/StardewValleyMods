@@ -1,7 +1,4 @@
-﻿
-using Microsoft.Xna.Framework;
-using Netcode;
-using StardewModdingAPI;
+﻿using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.GameData.GiantCrops;
@@ -14,7 +11,7 @@ namespace Tocseoj.Stardew.BigCropBonus
 {
   public sealed class ModConfig {
 		/// <summary>Whether to enable test mode, which makes giant crops always spawn (where valid).</summary>
-		public bool TestMode { get; set; } = true;
+		public bool TestMode { get; set; } = false;
 
 		/// <summary>The percent increase in value of giant crops.</summary>
 		public float PercentIncrease { get; set; } = 0.1f;
@@ -72,7 +69,6 @@ namespace Tocseoj.Stardew.BigCropBonus
 
 				e.Edit(asset => {
 					var objects = asset.AsDictionary<string, ObjectData>().Data;
-					// how to merge objects and objectsNeedingCreated?
 					foreach ((string key, ObjectData data) in objectsNeedingCreated) {
 						objects[key] = data;
 					}
@@ -133,7 +129,7 @@ namespace Tocseoj.Stardew.BigCropBonus
 								totalValue[comboIdentifier] = modifier;
 								cachedObjects[comboIdentifier] = validItem;
 							}
-							// quantity to readd to primaryBin later
+							// quantity to re-add to primaryBin later
 							totalQuantity[comboIdentifier] += shippingBin.ReduceId(validItem.QualifiedItemId, validItem.Stack);
 						}
 					}
@@ -180,7 +176,7 @@ namespace Tocseoj.Stardew.BigCropBonus
 				foreach (GiantCrop giantCrop in location.resourceClumps.OfType<GiantCrop>()) {
 					GiantCropData? giantCropItem = giantCrop.GetData();
 					if (giantCropItem != null) {
-						// Note the key is the source items id (for a Giant melon is '(O)254')
+						// Note the key is the source items id (for a Giant melon, it is '(O)254')
 						if (!cropTypeCounts.ContainsKey(giantCropItem.FromItemId)) {
 							cropTypeCounts[giantCropItem.FromItemId] = 0;
 							cropTypeNames[giantCropItem.FromItemId] = giantCropItem.Condition;
@@ -215,7 +211,6 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/// <param name="e">The event data.</param>
 		private void OnButtonPressed(object? sender, ButtonPressedEventArgs e) {
 			if (Config.TestMode && Context.IsWorldReady && e.Button.IsUseToolButton()) {
-				// Monitor.Log($"OnButtonPressed: TODO if needed");
 				HowManyGiantCrops();
 				Monitor.Log($"Number of shipping bins: {cachedShippingBins.Count}");
 			}

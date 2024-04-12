@@ -6,5 +6,5 @@
   "UniqueID": "Tocseoj.BigCropBonus",
   "EntryDll": "BigCropBonus.dll",
   "MinimumApiVersion": "4.0.0",
-  "UpdateKeys": []
+  "UpdateKeys": ["Nexus:22337"]
 }
