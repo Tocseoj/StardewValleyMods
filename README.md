@@ -29,7 +29,7 @@ for troubleshooting.
 
 To compile a mod and add it to your game's `Mods` directory:
 
-1. Rebuild the project in [Visual Studio Code](https://code.visualstudio.com/) (with the [C# DevKit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension), [Visual Studio](https://www.visualstudio.com/vs/community/), or [MonoDevelop](https://www.monodevelop.com/).
+1. Rebuild the project in [Visual Studio Code](https://code.visualstudio.com/) with the [C# DevKit](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit) extension (_I've heard this doesn't work with the Apple Silicon chips, try JetBrains Rider_), [Visual Studio](https://www.visualstudio.com/vs/community/), or [MonoDevelop](https://www.monodevelop.com/).
    - This will compile the code and package it into the mod directory.
 2. Launch the project with debugging.
    - This will start the game through SMAPI and attach the Visual Studio debugger.
@@ -55,6 +55,7 @@ To compile a mod and add it to your game's `Mods` directory:
 #### tasks.json
 
 ```json
+// build for debugging
 {
   "type": "dotnet",
   "task": "build",
@@ -71,6 +72,27 @@ To package a mod for release:
 1. Switch to `Release` build configuration.
 2. Recompile the mod per the previous section.
 3. Upload the generated `bin/Release/<mod name>-<version>.zip` file from the project folder.
+
+#### tasks.json
+
+```json
+// build for release
+{
+   "type": "shell",
+   "label": "dotnet: release",
+   "command": "dotnet",
+   "args": [
+     "build",
+     "--configuration",
+     "Release"
+   ],
+   "group": {
+     "kind": "build",
+     "isDefault": true
+   },
+   "problemMatcher": "$msCompile"
+}
+```
 
 ---
 
