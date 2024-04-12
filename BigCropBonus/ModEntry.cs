@@ -1,4 +1,5 @@
 ﻿
+using Microsoft.Xna.Framework;
 using Netcode;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -27,11 +28,11 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/// <summary>The mod configuration.</summary>
 		private ModConfig Config = null!; // set in Entry
 
-		/// <summary>The player's money at the previous tick.</summary>
-		private int prevMoney;
-
 		/// <summary>Objects that need to be created using AssetRequested.</summary>
-		private Dictionary<string, ObjectData> objectsNeedingCreated = new();
+		private readonly Dictionary<string, ObjectData> objectsNeedingCreated = new();
+
+		/// <summary>Shipping bins in the world.</summary>
+		private readonly List<Inventory> cachedShippingBins = new();
 
 		/*********
 		** Public methods
@@ -41,13 +42,10 @@ namespace Tocseoj.Stardew.BigCropBonus
 			Config = helper.ReadConfig<ModConfig>();
 
 			helper.Events.GameLoop.DayEnding += OnDayEnding;
+			helper.Events.Content.AssetRequested += OnAssetRequested;
 			if (Config.TestMode) {
 				Monitor.Log("Test mode is enabled. Giant crops will always spawn.", LogLevel.Debug);
-				helper.Events.Content.AssetRequested += OnAssetRequested;
 				helper.Events.Input.ButtonPressed += OnButtonPressed;
-				helper.Events.GameLoop.Saving += (sender, e) => Monitor.Log($"Player money Saving: {Game1.player.Money} : and shipping bin count: {Game1.getFarm().getShippingBin(Game1.player).Count}");
-				Helper.Events.World.ChestInventoryChanged += (sender, e) => Monitor.Log($"Player money ChestInventoryChanged({e.Chest}): {Game1.player.Money} : and shipping bin count: {Game1.getFarm().getShippingBin(Game1.player).Count}");
-				Helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
 			}
 		}
 
@@ -86,16 +84,16 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/// <param name="sender">The event sender.</param>
 		/// <param name="e">The event data.</param>
 		private void OnDayEnding(object? sender, DayEndingEventArgs e) {
-			Monitor.Log($"Player money DayEnding: {Game1.player.Money} : and shipping bin count: {Game1.getFarm().getShippingBin(Game1.player).Count}");
-
 			Dictionary<string, int> cropList = HowManyGiantCrops();
 
+			// These two dictionaries have matching keys (make this a tuple/class?)
 			Dictionary<string, StardewValley.Object> cachedObjects = new();
 			Dictionary<string, float> totalValue = new();
+			Dictionary<string, int> totalQuantity = new();
 
-			Inventory primaryBin = (Inventory)Game1.getFarm().getShippingBin(Game1.player);
-			List<Inventory> shippingBins = new() { primaryBin };
-			foreach (Inventory shippingBin in shippingBins) {
+			Inventory primaryBin = cachedShippingBins.First();
+			// TODO: Support multiplayer (when useSeparateWallets is true)
+			foreach (Inventory shippingBin in cachedShippingBins) {
 				foreach (Item item in shippingBin) {
 					if (item is StardewValley.Object validItem) {
 						// The preserve index might break with custom crops...
@@ -117,10 +115,13 @@ namespace Tocseoj.Stardew.BigCropBonus
 
 							if (!totalValue.ContainsKey(cachedIdentifier)) {
 								totalValue[cachedIdentifier] = 0;
+								totalQuantity[cachedIdentifier] = 0;
 								cachedObjects[cachedIdentifier] = validItem;
 							}
 							float modifier = (Config.PercentIncrease * cropList[matchedBigCropId]) + 1;
 							totalValue[cachedIdentifier] += validItem.Price * modifier;
+							// Moving to primaryBin later (todo: this destroys unqiue stacks like quality)
+							totalQuantity[cachedIdentifier] += shippingBin.ReduceId(validItem.QualifiedItemId, validItem.Stack);
 						}
 					}
 				}
@@ -144,14 +145,56 @@ namespace Tocseoj.Stardew.BigCropBonus
 			foreach (var refItem in totalValue) {
 				string generatedItemId = $"Tocseoj.BigCropBonus_{refItem.Key}";
 				StardewValley.Object bonus = new(generatedItemId, 1);
+				StardewValley.Object refItemObject = cachedObjects[refItem.Key];
+				refItemObject.Stack = totalQuantity[refItem.Key];
+				primaryBin.Add(refItemObject);
 				primaryBin.Add(bonus);
 			}
-			Inventory newOrder = new();
-			foreach (Item i in primaryBin.OrderBy(item => item.Name)) {
-				newOrder.Add(i);
-			}
-			primaryBin.OverwriteWith(newOrder);
+			cachedShippingBins.Clear();
+
 			Monitor.Log($"Total value: {string.Join(", ", totalValue.Select(pair => $"{pair.Key}: {pair.Value}"))}");
+		}
+
+		/// <summary>Get all giant crops in the game.</summary>
+		private Dictionary<string, int> HowManyGiantCrops() {
+			Dictionary<string, int> cropTypeCounts = new();
+			Dictionary<string, string> cropTypeNames = new();
+
+			// Looping through all locations and not just farm types to support any mods that allow crops to grow elsewhere
+			// Plus this is only going to be running on day end so it should be fine
+			cachedShippingBins.Clear();
+			Utility.ForEachLocation(location => {
+				foreach (GiantCrop giantCrop in location.resourceClumps.OfType<GiantCrop>()) {
+					GiantCropData? giantCropItem = giantCrop.GetData();
+					if (giantCropItem != null) {
+						// Note the key is the source items id (for a Giant melon is '(O)254')
+						if (!cropTypeCounts.ContainsKey(giantCropItem.FromItemId)) {
+							cropTypeCounts[giantCropItem.FromItemId] = 0;
+							cropTypeNames[giantCropItem.FromItemId] = giantCropItem.Condition;
+						}
+						cropTypeCounts[giantCropItem.FromItemId]++;
+					}
+				}
+				// cache Farm location shippingBins and Object.Chests where SpecialChestType is Chest.SpecialChestTypes.MiniShippingBin
+				if (location is Farm farm) {
+					if (Game1.getFarm() == farm) {
+						cachedShippingBins.Insert(0, (Inventory)farm.getShippingBin(Game1.player));
+					} else {
+						cachedShippingBins.Add((Inventory)farm.getShippingBin(Game1.player));
+					}
+				}
+				// getting all mini shipping bins
+				foreach (StardewValley.Object objects in location.objects.Values) {
+					if (objects is Chest chest && chest.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin) {
+						cachedShippingBins.Add(chest.Items);
+					}
+				}
+
+				return true;
+			});
+			Monitor.Log($"Giant crops count: {string.Join(", ", cropTypeCounts.Select(pair => $"{pair.Key}: {pair.Value}"))}");
+			Monitor.Log($"Giant crops conditions: {string.Join(", ", cropTypeNames.Select(pair => $"{pair.Key}: {pair.Value}"))}");
+			return cropTypeCounts;
 		}
 
 		/// <inheritdoc cref="IInputEvents.ButtonPressed"/>
@@ -159,62 +202,10 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/// <param name="e">The event data.</param>
 		private void OnButtonPressed(object? sender, ButtonPressedEventArgs e) {
 			if (Config.TestMode && Context.IsWorldReady && e.Button.IsUseToolButton()) {
-
-				Monitor.Log($"Player money OnButtonPressed: {Game1.player.Money} : and shipping bin count: {Game1.getFarm().getShippingBin(Game1.player).Count}");
-
-				Dictionary<string, int> cropList = HowManyGiantCrops();
-
-				foreach ((string key, int count) in cropList) {
-					// TODO: Support multiplayer (when useSeparateWallets is true)
-					Inventory shippingBin = (Inventory)Game1.getFarm().getShippingBin(Game1.player);
-
-					foreach(Item item in shippingBin) {
-						string? preserveId = Helper.Reflection.GetField<NetString>(item, "preservedParentSheetIndex").GetValue()?.Value;
-						if (item.QualifiedItemId == key || $"(O){preserveId}" == key) {
-							Monitor.Log($"Found {item.Name} in shipping bin which matches {key}.");
-						}
-					}
-				}
+				// Monitor.Log($"OnButtonPressed: TODO if needed");
+				HowManyGiantCrops();
+				Monitor.Log($"Number of shipping bins: {cachedShippingBins.Count}");
 			}
-		}
-
-		/// <inheritdoc cref="IGameLoopEvents.UpdateTicked"/>
-		/// <param name="sender">The event sender.</param>
-		/// <param name="e">The event data.</param>
-		private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e) {
-			if (!Context.IsWorldReady)
-				return;
-
-			if (Game1.player.Money != prevMoney) {
-				Monitor.Log($"Player money OnButtonPressed: {Game1.player.Money} : and shipping bin count: {Game1.getFarm().getShippingBin(Game1.player).Count}");
-				prevMoney = Game1.player.Money;
-			}
-		}
-
-		/// <summary>Get all giant crops in the game.</summary>
-		private Dictionary<string, int> HowManyGiantCrops() {
-			Dictionary<string, int> cropTypeCounts = new();
-
-			// Looping through all locations and not just farm types to support any mods that allow crops to grow elsewhere
-			// Plus this is only going to be running on day end so it should be fine
-			Utility.ForEachLocation(location => {
-				foreach (GiantCrop giantCrop in location.resourceClumps.OfType<GiantCrop>()) {
-					string? item_key = giantCrop.GetData()?.FromItemId;
-					if (item_key != null) {
-							// Note the key is the source items id (for a Giant melon is '(O)254')
-						if (cropTypeCounts.ContainsKey(item_key)) {
-							cropTypeCounts[item_key]++;
-						} else {
-							cropTypeCounts[item_key] = 1;
-						}
-					}
-				}
-				// Need to cache Farm shippingBins and Object.Chests where SpecialChestType is Chest.SpecialChestTypes.MiniShippingBin
-				StardewValley.Objects.Chest bin = new();
-				return true;
-			});
-			Monitor.Log($"Giant crops: {string.Join(", ", cropTypeCounts.Select(pair => $"{pair.Key}: {pair.Value}"))}");
-			return cropTypeCounts;
 		}
 	}
 
