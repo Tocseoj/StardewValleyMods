@@ -62,20 +62,7 @@ To compile a mod and add it to your game's `Mods` directory:
   "group": "build",
   "problemMatcher": [],
   "label": "dotnet: build"
-}
-```
-
-### Compiling a mod for release
-
-To package a mod for release:
-
-1. Switch to `Release` build configuration.
-2. Recompile the mod per the previous section.
-3. Upload the generated `bin/Release/<mod name>-<version>.zip` file from the project folder.
-
-#### tasks.json
-
-```json
+},
 // build for release
 {
    "type": "shell",
@@ -93,6 +80,14 @@ To package a mod for release:
    "problemMatcher": "$msCompile"
 }
 ```
+
+### Compiling a mod for release
+
+To package a mod for release:
+
+1. Switch to `Release` build configuration.
+2. Recompile the mod per the previous section.
+3. Upload the generated `bin/Release/<mod name>-<version>.zip` file from the project folder.
 
 ---
 
