@@ -1,7 +1,7 @@
 ﻿# Tocseoj's Stardew Valley mods
 
 [![Nexus Mods](https://img.shields.io/badge/Nexus-Mods-4DB7FF.svg)](https://www.nexusmods.com/users/165805258?tab=user+files)
-[![ModDrop](https://img.shields.io/badge/ModDrop-ModDrop-4DB7FF.svg)](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-lightj)
+[![ModDrop](https://img.shields.io/badge/ModDrop-ModDrop-4DB7FF.svg)](https://www.moddrop.com/stardew-valley/profile/431108/mods)
 [![GitHub](https://img.shields.io/badge/GitHub-Tocseoj-4DB7FF.svg)](https://github.com/Tocseoj)
 
 This repository contains my SMAPI mods for Stardew Valley.
@@ -10,12 +10,10 @@ This repository contains my SMAPI mods for Stardew Valley.
 
 Active mods:
 
-- **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052/) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [source](LadderLight))
+- **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [source](LadderLight))
   _Let there be light! Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
 
-WIP mods:
-
-- **Big Crop Bonus** ([source](BigCropBonus))
+- **Big Crop Bonus** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22337) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1553635-big-crop-bonus) | [source](BigCropBonus))
   _Adds a bonus to the selling price of related items when you have a giant crop of it grown. (This stacks!)_
 
 ## Compiling the mods
