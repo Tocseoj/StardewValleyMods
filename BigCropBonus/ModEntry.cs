@@ -41,8 +41,9 @@ namespace Tocseoj.Stardew.BigCropBonus
 		public override void Entry(IModHelper helper) {
 			Config = helper.ReadConfig<ModConfig>();
 
-			helper.Events.GameLoop.DayEnding += OnDayEnding;
 			helper.Events.Content.AssetRequested += OnAssetRequested;
+			helper.Events.GameLoop.DayEnding += OnDayEnding;
+			helper.Events.GameLoop.DayStarted += OnDayStarted;
 			if (Config.TestMode) {
 				Monitor.Log("Test mode is enabled. Giant crops will always spawn.", LogLevel.Debug);
 				helper.Events.Input.ButtonPressed += OnButtonPressed;
@@ -80,6 +81,15 @@ namespace Tocseoj.Stardew.BigCropBonus
 			}
 		}
 
+		/// <inheritdoc cref="IGameLoopEvents.DayStarted"/>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The event data.</param>
+		[EventPriority(EventPriority.High - 1)]
+		private void OnDayStarted(object? sender, DayStartedEventArgs e) {
+			objectsNeedingCreated.Clear();
+			Helper.GameContent.InvalidateCache("Data/Objects");
+		}
+
 		/// <inheritdoc cref="IGameLoopEvents.DayEnding"/>
 		/// <param name="sender">The event sender.</param>
 		/// <param name="e">The event data.</param>
@@ -113,15 +123,18 @@ namespace Tocseoj.Stardew.BigCropBonus
 							// hmm, this is all i needed to do huh...
 							// validItem.Price += (int)(validItem.Price * Config.PercentIncrease);
 
-							if (!totalValue.ContainsKey(cachedIdentifier)) {
-								totalValue[cachedIdentifier] = 0;
-								totalQuantity[cachedIdentifier] = 0;
-								cachedObjects[cachedIdentifier] = validItem;
+							// uh... how do we handle unique stacks?
+							// just going to include quality as the second part of the identifier
+							// but this will be very fragile code
+							string comboIdentifier = $"Q{validItem.Quality}_{validItem.QualifiedItemId}";
+							if (!totalValue.ContainsKey(comboIdentifier)) {
+								totalQuantity[comboIdentifier] = 0;
+								float modifier = Config.PercentIncrease * cropList[matchedBigCropId];
+								totalValue[comboIdentifier] = modifier;
+								cachedObjects[comboIdentifier] = validItem;
 							}
-							float modifier = (Config.PercentIncrease * cropList[matchedBigCropId]) + 1;
-							totalValue[cachedIdentifier] += validItem.Price * modifier;
-							// Moving to primaryBin later (todo: this destroys unqiue stacks like quality)
-							totalQuantity[cachedIdentifier] += shippingBin.ReduceId(validItem.QualifiedItemId, validItem.Stack);
+							// quantity to readd to primaryBin later
+							totalQuantity[comboIdentifier] += shippingBin.ReduceId(validItem.QualifiedItemId, validItem.Stack);
 						}
 					}
 				}
@@ -131,11 +144,11 @@ namespace Tocseoj.Stardew.BigCropBonus
 				string generatedItemId = $"Tocseoj.BigCropBonus_{refItemId}";
 				ObjectData generatedObjectData = new() {
 					Name = $"{cachedObjects[refItemId].Name} Bonus",
-					DisplayName = $"Bonus to {cachedObjects[refItemId].DisplayName}",
+					DisplayName = $"{Math.Round(refItemValue * 100)}% big crop bonus",
 					Description = "Your bonus for having a Giant Crop.",
 					Type = cachedObjects[refItemId].Type,
 					Category = cachedObjects[refItemId].Category,
-					Price = (int)Math.Ceiling(refItemValue),
+					Price = (int)Math.Ceiling(cachedObjects[refItemId].Price * refItemValue),
 					Texture = null,
 					SpriteIndex = 26,
 				};
@@ -144,10 +157,10 @@ namespace Tocseoj.Stardew.BigCropBonus
 			Helper.GameContent.InvalidateCache("Data/Objects");
 			foreach (var refItem in totalValue) {
 				string generatedItemId = $"Tocseoj.BigCropBonus_{refItem.Key}";
-				StardewValley.Object bonus = new(generatedItemId, 1);
 				StardewValley.Object refItemObject = cachedObjects[refItem.Key];
 				refItemObject.Stack = totalQuantity[refItem.Key];
 				primaryBin.Add(refItemObject);
+				StardewValley.Object bonus = new(generatedItemId, totalQuantity[refItem.Key], false, -1, cachedObjects[refItem.Key].Quality);
 				primaryBin.Add(bonus);
 			}
 			cachedShippingBins.Clear();
