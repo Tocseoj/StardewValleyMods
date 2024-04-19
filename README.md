@@ -10,11 +10,14 @@ This repository contains my SMAPI mods for Stardew Valley.
 
 Active mods:
 
-- **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [source](LadderLight))
+- **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052) | [(todo)CurseForge]() | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [(todo)GitHub]() | [source](LadderLight))
   _Let there be light! Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
 
-- **Big Crop Bonus** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22337) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1553635-big-crop-bonus) | [source](BigCropBonus))
+- **Big Crop Bonus** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22337) | [(todo)CurseForge]() | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1553635-big-crop-bonus) | [(todo)GitHub]() | [source](BigCropBonus))
   _Adds a bonus to the selling price of related items when you have a giant crop of it grown. (This stacks!)_
+
+- **Mossy Tree Bubble** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22818) | [(todo)CurseForge]() | [(todo)ModDrop]() | [(todo)GitHub]() | [source](MossyTreeBubble))
+  _Adds a bubble to the mossy trees in the Secret Woods, so you can see them from further away._
 
 ## Compiling the mods
 
