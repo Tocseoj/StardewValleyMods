@@ -14,10 +14,10 @@ Active mods:
 - **Ladder Light** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22052) | [CurseForge](https://www.curseforge.com/stardewvalley/mods/ladder-light) | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1549539-ladder-light) | [GitHub](https://github.com/Tocseoj/StardewValleyMods/releases?q=LadderLight&expanded=true) | [source](LadderLight))
   _Let there be light! Makes mine ladders and shafts have a slight glow to them, so you don't lose them on levels 30-40._
 
-- **Big Crop Bonus** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22337) | [(todo)CurseForge]() | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1553635-big-crop-bonus) | [(todo)GitHub](https://github.com/Tocseoj/StardewValleyMods/releases?q=BigCropBonus&expanded=true) | [source](BigCropBonus))
+- **Big Crop Bonus** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22337) | [(todo)CurseForge]() | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1553635-big-crop-bonus) | [GitHub](https://github.com/Tocseoj/StardewValleyMods/releases?q=BigCropBonus&expanded=true) | [source](BigCropBonus))
   _Adds a bonus to the selling price of related items when you have a giant crop of it grown. (This stacks!)_
 
-- **Mossy Tree Bubble** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22818) | [(todo)CurseForge]() | [(todo)ModDrop]() | [(todo)GitHub](https://github.com/Tocseoj/StardewValleyMods/releases?q=MossyTreeBubble&expanded=true) | [source](MossyTreeBubble))
+- **Mossy Tree Bubble** ([Nexus](https://www.nexusmods.com/stardewvalley/mods/22818) | [(todo)CurseForge]() | [ModDrop](https://www.moddrop.com/stardew-valley/mods/1564905-mossy-tree-bubble) | [GitHub](https://github.com/Tocseoj/StardewValleyMods/releases?q=MossyTreeBubble&expanded=true) | [source](MossyTreeBubble))
   _Put reminders on your trees when they have harvest-able moss. Won't overlap with tapper bubbles._
 
 ## Compiling the mods
