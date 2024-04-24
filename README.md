@@ -99,4 +99,18 @@ To package a mod for release:
 
 ---
 
+> Thanks to all the wonderful people in the Stardew Valley discord who have helped with my questions!
+>
+> - XxHarvzBackxX
+> - atravita
+> - luckypuppy96
+> - Khloe Leclair
+> - Pathoschild
+> - Esca
+> - ichortower
+>
+> _...and many more_
+
+---
+
 > README template is taken directly from [Pathoschild's repository](https://github.com/Pathoschild/StardewMods)
