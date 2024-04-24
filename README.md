@@ -85,6 +85,10 @@ To compile a mod and add it to your game's `Mods` directory:
 }
 ```
 
+### Getting hot-reloading to work
+
+- <https://github.com/arannya/macos-sdv-hotreload>
+
 ### Compiling a mod for release
 
 To package a mod for release:
