@@ -210,7 +210,7 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/// <param name="sender">The event sender.</param>
 		/// <param name="e">The event data.</param>
 		private void OnButtonPressed(object? sender, ButtonPressedEventArgs e) {
-			if (Config.TestMode && Context.IsWorldReady && e.Button.IsUseToolButton()) {
+			if (Config.TestMode && Context.IsWorldReady && e.Button == SButton.T) {
 				HowManyGiantCrops();
 				Monitor.Log($"Number of shipping bins: {cachedShippingBins.Count}");
 			}

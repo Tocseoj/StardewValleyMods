@@ -8,12 +8,14 @@ using StardewValley.TerrainFeatures;
 namespace Tocseoj.Stardew.MossyTreeBubble;
 
 internal sealed class ModEntry : Mod {
-	private readonly Dictionary<GameLocation, Dictionary<Vector2, Tuple<Tree, Tuple<TemporaryAnimatedSprite, TemporaryAnimatedSprite>>>> TreesAtLocation = new();
+	// Location -> Tile -> (Tree, Bubble, Moss))
+	private readonly Dictionary<GameLocation, Dictionary<Vector2, ValueTuple<Tree, TemporaryAnimatedSprite, TemporaryAnimatedSprite>>> TreesAtLocation = new();
 	public override void Entry(IModHelper helper) {
-		helper.Events.GameLoop.OneSecondUpdateTicked += OnOneSecondUpdateTicked;
+		helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
 		helper.Events.Player.Warped += OnWarped;
 		helper.Events.GameLoop.DayStarted += OnDayStarted;
-		helper.Events.GameLoop.DayEnding += OnDayEnding;
+		helper.Events.GameLoop.DayEnding += (sender, e) => TreesAtLocation.Clear();
+		helper.Events.GameLoop.ReturnedToTitle += (sender, e) => TreesAtLocation.Clear();
 		helper.Events.World.TerrainFeatureListChanged += OnTerrainFeatureListChanged;
 		helper.Events.World.LocationListChanged += OnLocationListChanged;
 	}
@@ -25,9 +27,13 @@ internal sealed class ModEntry : Mod {
 		GameLocation location = e.NewLocation;
 		if (!TreesAtLocation.ContainsKey(location)) return;
 
-		foreach ((_, (_, (TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss))) in TreesAtLocation[location]) {
+		foreach ((_, (_, TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss)) in TreesAtLocation[location]) {
+			// Prevent adding the same sprites multiple times
+			// The farm doesn't seem to clear temporary sprites after warp
+			// so we need to check if the sprites are already there
 			if (location.TemporarySprites.Contains(bubble))
 				break;
+
 			location.TemporarySprites.Add(bubble);
 			location.TemporarySprites.Add(moss);
 		}
@@ -35,13 +41,13 @@ internal sealed class ModEntry : Mod {
 		Monitor.Log($"Added {TreesAtLocation[location].Count} mossy tree sprites to {location.Name}.");
 	}
 
-	private void OnOneSecondUpdateTicked(object? sender, OneSecondUpdateTickedEventArgs e) {
+	private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e) {
 		if (!Context.IsWorldReady) return;
 
 		GameLocation location = Game1.currentLocation;
 		if (!TreesAtLocation.ContainsKey(location)) return;
 
-		foreach ((Vector2 tile, (Tree tree, (TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss))) in TreesAtLocation[location]) {
+		foreach ((Vector2 tile, (Tree tree, TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss)) in TreesAtLocation[location]) {
 			if (tree.hasMoss.Value == false) {
 				Monitor.Log($"Moss taken from tree at {tile}. Removing sprites with id {bubble.id} and {moss.id}.");
 				location.TemporarySprites.Remove(bubble);
@@ -62,14 +68,14 @@ internal sealed class ModEntry : Mod {
 					if (!TreesAtLocation.ContainsKey(location))
 						TreesAtLocation[location] = new();
 
-					Tuple<TemporaryAnimatedSprite, TemporaryAnimatedSprite> sprites = BubbleSprites(tile);
-					TreesAtLocation[location][tile] = new(tree, sprites);
+					(TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss) = BubbleSprites(tile);
+					TreesAtLocation[location][tile] = (tree, bubble, moss);
 				}
 			}
 		}
 	}
 
-	private static Tuple<TemporaryAnimatedSprite, TemporaryAnimatedSprite> BubbleSprites(Vector2 tile) {
+	private static (TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss) BubbleSprites(Vector2 tile) {
 		Vector2 offset = new(2, -45);
 		TemporaryAnimatedSprite bubble = new(
 			textureName: "LooseSprites\\Cursors",
@@ -106,18 +112,16 @@ internal sealed class ModEntry : Mod {
 			yPeriodicRange = 4f,
 			yPeriodicLoopTime = 1500f,
 		};
-		return new Tuple<TemporaryAnimatedSprite, TemporaryAnimatedSprite>(bubble, moss);
+		return (bubble, moss);
 	}
 
 	private void OnDayStarted(object? sender, DayStartedEventArgs e) {
+		TreesAtLocation.Clear();
+
 		foreach (GameLocation location in Game1.locations) {
       FindMossyTrees(location);
 		}
 		Monitor.Log($"Found {TreesAtLocation.Sum(pair => pair.Value.Count)} mossy trees.");
-	}
-
-	private void OnDayEnding(object? sender, DayEndingEventArgs e) {
-		TreesAtLocation.Clear();
 	}
 
 	private void OnTerrainFeatureListChanged(object? sender, TerrainFeatureListChangedEventArgs e) {

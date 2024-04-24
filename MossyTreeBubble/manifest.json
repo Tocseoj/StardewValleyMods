@@ -1,7 +1,7 @@
 {
   "Name": "Mossy Tree Bubble",
   "Author": "Tocseoj",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "Description": "Shows when trees have harvestable moss",
   "UniqueID": "Tocseoj.MossyTreeBubble",
   "EntryDll": "MossyTreeBubble.dll",

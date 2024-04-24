@@ -1,7 +1,7 @@
 {
   "Name": "Big Crop Bonus",
   "Author": "Tocseoj",
-  "Version": "0.1.1",
+  "Version": "0.1.2",
   "Description": "Big crops make the base crop sell for more!",
   "UniqueID": "Tocseoj.BigCropBonus",
   "EntryDll": "BigCropBonus.dll",
