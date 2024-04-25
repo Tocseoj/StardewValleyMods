@@ -1,9 +1,13 @@
-﻿using StardewModdingAPI;
+﻿using GenericModConfigMenu;
+using Microsoft.Xna.Framework;
+using StardewModdingAPI;
 using StardewModdingAPI.Events;
+using StardewModdingAPI.Utilities;
 using StardewValley;
 using StardewValley.GameData.GiantCrops;
 using StardewValley.GameData.Objects;
 using StardewValley.Inventories;
+using StardewValley.Menus;
 using StardewValley.Objects;
 using StardewValley.TerrainFeatures;
 
@@ -12,6 +16,8 @@ namespace Tocseoj.Stardew.BigCropBonus
   public sealed class ModConfig {
 		/// <summary>Whether to enable test mode, which makes giant crops always spawn (where valid).</summary>
 		public bool TestMode { get; set; } = false;
+
+		public KeybindList TraceLog { get; set; } = new KeybindList(SButton.T);
 
 		/// <summary>The percent increase in value of giant crops.</summary>
 		public float PercentIncrease { get; set; } = 0.1f;
@@ -38,9 +44,12 @@ namespace Tocseoj.Stardew.BigCropBonus
 		public override void Entry(IModHelper helper) {
 			Config = helper.ReadConfig<ModConfig>();
 
+			helper.Events.GameLoop.GameLaunched += OnGameLaunched;
 			helper.Events.Content.AssetRequested += OnAssetRequested;
 			helper.Events.GameLoop.DayEnding += OnDayEnding;
 			helper.Events.GameLoop.DayStarted += OnDayStarted;
+			helper.Events.Display.RenderedActiveMenu += OnRenderedActiveMenu;
+			helper.Events.Player.InventoryChanged += OnInventoryChanged;
 			if (Config.TestMode) {
 				Monitor.Log("Test mode is enabled. Giant crops will always spawn.", LogLevel.Debug);
 				helper.Events.Input.ButtonPressed += OnButtonPressed;
@@ -50,6 +59,46 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/*********
 		** Private methods
 		*********/
+		/// <inheritdoc cref="IContentEvents.GameLaunched"/>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The event data.</param>
+		private void OnGameLaunched(object? sender, GameLaunchedEventArgs e){
+		 		// get Generic Mod Config Menu's API (if it's installed)
+				var configMenu = this.Helper.ModRegistry.GetApi<IGenericModConfigMenuApi>("spacechase0.GenericModConfigMenu");
+				if (configMenu is null)
+						return;
+
+				// register mod
+				configMenu.Register(
+						mod: this.ModManifest,
+						reset: () => this.Config = new ModConfig(),
+						save: () => this.Helper.WriteConfig(this.Config)
+				);
+
+				// add some config options
+				configMenu.AddBoolOption(
+						mod: this.ModManifest,
+						name: () => "Test Mode",
+						tooltip: () => "Whether to enable test mode, which makes giant crops always spawn (where valid).",
+						getValue: () => this.Config.TestMode,
+						setValue: value => this.Config.TestMode = value
+				);
+				configMenu.AddKeybindList(
+						mod: this.ModManifest,
+						name: () => "Trace to Log",
+						tooltip: () => "Keybind for debugging.",
+						getValue: () => this.Config.TraceLog,
+						setValue: value => this.Config.TraceLog = value
+				);
+				configMenu.AddNumberOption(
+						mod: this.ModManifest,
+						name: () => "Percent (%) Increase",
+						tooltip: () => "The percent (%) increase in value of giant crops.",
+						getValue: () => (float)Math.Truncate(this.Config.PercentIncrease * 100),
+						setValue: value => this.Config.PercentIncrease = (float)Math.Round(value / 100, 2)
+				);
+		}
+
 		/// <inheritdoc cref="IContentEvents.AssetRequested"/>
 		/// <param name="sender">The event sender.</param>
 		/// <param name="e">The event data.</param>
@@ -210,11 +259,168 @@ namespace Tocseoj.Stardew.BigCropBonus
 		/// <param name="sender">The event sender.</param>
 		/// <param name="e">The event data.</param>
 		private void OnButtonPressed(object? sender, ButtonPressedEventArgs e) {
-			if (Config.TestMode && Context.IsWorldReady && e.Button == SButton.T) {
+			if (Config.TestMode && Context.IsWorldReady && Config.TraceLog.JustPressed()) {
 				HowManyGiantCrops();
 				Monitor.Log($"Number of shipping bins: {cachedShippingBins.Count}");
 			}
 		}
-	}
 
+		/// <inheritdoc cref="IDisplayEvents.RenderedActiveMenu"/>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The event data.</param>
+		private void OnRenderedActiveMenu(object? sender, RenderedActiveMenuEventArgs e) {
+			if (Game1.activeClickableMenu != null) {
+				// IClickableMenu.drawHoverText(e.SpriteBatch, "Test in moderation.", Game1.smallFont);
+				// Monitor.Log($"Active menu: {Game1.activeClickableMenu}");
+				if (Game1.player.stats.Get("Book_PriceCatalogue") != 0 && Game1.activeClickableMenu is ItemGrabMenu itemGrabMenu) {
+					if (itemGrabMenu.hoveredItem != null && itemGrabMenu.hoveredItem is StardewValley.Object validItem) {
+						Dictionary<string, int> cropList = GetGiantCrops();
+						// The preserve index might break with custom crops...
+						string matchedBigCropId = "";
+						if (cropList.ContainsKey(validItem.QualifiedItemId)) {
+							matchedBigCropId = validItem.QualifiedItemId;
+						} else if (cropList.ContainsKey($"(O){validItem.preservedParentSheetIndex}")) {
+							matchedBigCropId = $"(O){validItem.preservedParentSheetIndex}";
+						}
+						if (matchedBigCropId != "") {
+							float modifier = Config.PercentIncrease * cropList[matchedBigCropId];
+							int bonusMoney = (int)(validItem.Price * modifier);
+
+							IClickableMenu.drawToolTip(
+								e.SpriteBatch,
+								$"{itemGrabMenu.hoveredItem.getDescription()}(+{Math.Truncate(modifier*100)}%)",
+								itemGrabMenu.hoveredItem.DisplayName,
+								itemGrabMenu.hoveredItem,
+								Game1.player.CursorSlotItem != null,
+								moneyAmountToShowAtBottom: (validItem.Price + bonusMoney) * validItem.Stack);
+						}
+					}
+				}
+				else if (Game1.player.stats.Get("Book_PriceCatalogue") != 0 && Game1.activeClickableMenu is GameMenu gameMenu) {
+					IClickableMenu page = gameMenu.pages[gameMenu.currentTab];
+					if (page is InventoryPage inventoryPage) {
+						if (inventoryPage.hoveredItem != null && inventoryPage.hoveredItem is StardewValley.Object validItem) {
+							Dictionary<string, int> cropList = GetGiantCrops();
+							// The preserve index might break with custom crops...
+							string matchedBigCropId = "";
+							if (cropList.ContainsKey(validItem.QualifiedItemId)) {
+								matchedBigCropId = validItem.QualifiedItemId;
+							} else if (cropList.ContainsKey($"(O){validItem.preservedParentSheetIndex}")) {
+								matchedBigCropId = $"(O){validItem.preservedParentSheetIndex}";
+							}
+							if (matchedBigCropId != "") {
+								float modifier = Config.PercentIncrease * cropList[matchedBigCropId];
+								int bonusMoney = (int)(validItem.Price * modifier);
+
+								IClickableMenu.drawToolTip(
+									e.SpriteBatch,
+									$"{inventoryPage.hoveredItem.getDescription()}(+{Math.Truncate(modifier*100)}%)",
+									inventoryPage.hoveredItem.DisplayName,
+									inventoryPage.hoveredItem,
+									Game1.player.CursorSlotItem != null,
+									moneyAmountToShowAtBottom: (validItem.Price + bonusMoney) * validItem.Stack);
+							}
+						}
+					}
+				}
+				else if (Game1.activeClickableMenu is ShopMenu shopMenu) {
+					if (shopMenu.hoveredItem != null) {
+						// buying an item
+					}
+					else if (!string.IsNullOrEmpty(shopMenu.hoverText)) {
+						Vector2 mousePosition = Helper.Input.GetCursorPosition().GetScaledScreenPixels();
+						foreach (ClickableComponent slot in shopMenu.inventory.inventory) {
+							if (slot.bounds.Contains(mousePosition)) {
+								Item hoveredItem = Game1.player.Items[slot.myID];
+								if (hoveredItem != null && hoveredItem is StardewValley.Object validItem) {
+									Dictionary<string, int> cropList = GetGiantCrops();
+									// The preserve index might break with custom crops...
+									string matchedBigCropId = "";
+									if (cropList.ContainsKey(validItem.QualifiedItemId)) {
+										matchedBigCropId = validItem.QualifiedItemId;
+									} else if (cropList.ContainsKey($"(O){validItem.preservedParentSheetIndex}")) {
+										matchedBigCropId = $"(O){validItem.preservedParentSheetIndex}";
+									}
+									if (matchedBigCropId != "") {
+										float modifier = Config.PercentIncrease * cropList[matchedBigCropId];
+										int bonusMoney = (int)(validItem.Price * modifier);
+
+										IClickableMenu.drawHoverText(
+											e.SpriteBatch,
+											// Melon (+10%) x1
+											$"{validItem.DisplayName} (+{Math.Truncate(modifier*100)}%) x{validItem.Stack}",
+											Game1.smallFont,
+											moneyAmountToDisplayAtBottom: shopMenu.hoverPrice + (bonusMoney * validItem.Stack));
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		/// <inheritdoc cref="IPlayerEvents.InventoryChanged"/>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The event data.</param>
+		private void OnInventoryChanged(object? sender, InventoryChangedEventArgs e) {
+			if (!e.IsLocalPlayer) return;
+
+			foreach (Item item in e.Removed) {
+				Monitor.Log($"Removed item: {item.DisplayName}");
+				SoldItem(e.Player, item, item.Stack);
+			}
+			foreach (ItemStackSizeChange stackChange in e.QuantityChanged) {
+				Monitor.Log($"Quantity changed: {stackChange.Item.DisplayName} from {stackChange.OldSize} to {stackChange.NewSize}");
+				int soldCount = stackChange.OldSize - stackChange.NewSize;
+				SoldItem(e.Player, stackChange.Item, soldCount);
+			}
+		}
+
+		/// <summary>Handle selling an item.</summary>
+		/// <param name="item">The item being sold.</param>
+		/// <param name="count">The number of items being sold.</param>
+		private void SoldItem(Farmer player, Item item, int count) {
+			if (Game1.activeClickableMenu is ShopMenu shopMenu) {
+				if (item is StardewValley.Object validItem) {
+					Dictionary<string, int> cropList = GetGiantCrops();
+					// The preserve index might break with custom crops...
+					string matchedBigCropId = "";
+					if (cropList.ContainsKey(validItem.QualifiedItemId)) {
+						matchedBigCropId = validItem.QualifiedItemId;
+					} else if (cropList.ContainsKey($"(O){validItem.preservedParentSheetIndex}")) {
+						matchedBigCropId = $"(O){validItem.preservedParentSheetIndex}";
+					}
+					if (matchedBigCropId != "") {
+						Monitor.Log($"Sold {count} {item.DisplayName}(s) for {item.sellToStorePrice()}g ea. which matches a giant crop {matchedBigCropId}.");
+
+						float modifier = Config.PercentIncrease * cropList[matchedBigCropId];
+						int bonusMoney = (int)(validItem.Price * modifier);
+						ShopMenu.chargePlayer(player, shopMenu.currency, -bonusMoney * count);
+
+						Monitor.Log($"Bonus money: {bonusMoney} * {count} = {bonusMoney * count}g");
+					}
+				}
+			}
+		}
+
+		/// <summary>Get giant crops (only).</summary>
+		private static Dictionary<string, int> GetGiantCrops() {
+			Dictionary<string, int> cropTypeCounts = new();
+			Utility.ForEachLocation(location => {
+				foreach (GiantCrop giantCrop in location.resourceClumps.OfType<GiantCrop>()) {
+					GiantCropData? giantCropItem = giantCrop.GetData();
+					if (giantCropItem != null) {
+						// Note the key is the source items id (for a Giant melon, it is '(O)254')
+						if (!cropTypeCounts.ContainsKey(giantCropItem.FromItemId)) {
+							cropTypeCounts[giantCropItem.FromItemId] = 0;
+						}
+						cropTypeCounts[giantCropItem.FromItemId]++;
+					}
+				}
+				return true;
+			});
+			return cropTypeCounts;
+		}
+	}
 }
