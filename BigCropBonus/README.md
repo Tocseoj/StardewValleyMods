@@ -13,13 +13,14 @@ Supports custom giant crops from other mods! (Tested with <https://www.nexusmods
 
 Won't work in multiplayer with split wallets... yet! Still learning how, and will update as soon as I can!
 
-v0.1.3 - Fix selling to shops and add updated prices to tooltips
-v0.1.2 - Tweaked test mode info
-v0.1.1 - Updated .zip to release build
-v0.1.0 - Initial release
+- v0.1.4 - Multiplayer support! Healing effect and friendship points get boosted as well! Supports cooked items made from the crop as well!
+- v0.1.3 - Fix selling to shops and add updated prices to tooltips
+- v0.1.2 - Tweaked test mode info
+- v0.1.1 - Updated .zip to release build
+- v0.1.0 - Initial release
 
 <img width="1392" alt="Shipping Screen Update" src="https://github.com/Tocseoj/StardewValleyMods/assets/14003647/b665d6af-3676-4dea-8269-e181efbd73ea">
 <img width="1392" alt="Example Farm" src="https://github.com/Tocseoj/StardewValleyMods/assets/14003647/05288626-2647-4f88-ac96-f6aaaf8352bf">
 
-> Idea from webxro on the mod-ideas board: <https://github.com/StardewModders/mod-ideas/issues/2>
-> Source Code - <https://github.com/Tocseoj/StardewValleyMods>
+> - Idea from webxro on the mod-ideas board: <https://github.com/StardewModders/mod-ideas/issues/2>
+> - Source Code - <https://github.com/Tocseoj/StardewValleyMods>
