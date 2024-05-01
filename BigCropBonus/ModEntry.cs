@@ -344,7 +344,7 @@ internal class ModEntry : Mod
 			}
 
 		} else {
-			SoldItem(e.Player, stackChange.Item, soldCount);
+			SoldItem(player, item, stack);
 		}
 	}
 

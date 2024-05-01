@@ -25,9 +25,9 @@ internal sealed class ModEntry : Mod {
 		if (!e.IsLocalPlayer) return;
 
 		GameLocation location = e.NewLocation;
-		if (!TreesAtLocation.ContainsKey(location)) return;
+		if (location == null || !TreesAtLocation.TryGetValue(location, out var trees)) return;
 
-		foreach ((_, (_, TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss)) in TreesAtLocation[location]) {
+		foreach ((_, (_, TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss)) in trees) {
 			// Prevent adding the same sprites multiple times
 			// The farm doesn't seem to clear temporary sprites after warp
 			// so we need to check if the sprites are already there
@@ -38,21 +38,21 @@ internal sealed class ModEntry : Mod {
 			location.TemporarySprites.Add(moss);
 		}
 
-		Monitor.Log($"Added {TreesAtLocation[location].Count} mossy tree sprites to {location.Name}.");
+		Monitor.Log($"Added {trees.Count} mossy tree sprites to {location.Name}.");
 	}
 
 	private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e) {
 		if (!Context.IsWorldReady) return;
 
 		GameLocation location = Game1.currentLocation;
-		if (!TreesAtLocation.ContainsKey(location)) return;
+		if (location == null || !TreesAtLocation.TryGetValue(location, out var trees)) return;
 
-		foreach ((Vector2 tile, (Tree tree, TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss)) in TreesAtLocation[location]) {
+		foreach ((Vector2 tile, (Tree tree, TemporaryAnimatedSprite bubble, TemporaryAnimatedSprite moss)) in trees) {
 			if (tree.hasMoss.Value == false) {
 				Monitor.Log($"Moss taken from tree at {tile}. Removing sprites with id {bubble.id} and {moss.id}.");
 				location.TemporarySprites.Remove(bubble);
 				location.TemporarySprites.Remove(moss);
-				TreesAtLocation[location].Remove(tile);
+				trees.Remove(tile);
 			}
 		}
 	}
