@@ -5,6 +5,7 @@ namespace Tocseoj.Stardew.BigCropBonus;
 
 public sealed class ModConfig
 {
+	public bool EnableMod { get; set; } = true;
 	public float SellModifier { get; set; } = 0.10f;
 	public float GiftModifier { get; set; } = 0.10f;
 	public float EatModifier { get; set; } = 0.10f;

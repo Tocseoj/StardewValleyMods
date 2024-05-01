@@ -23,8 +23,13 @@ internal class ModEntry : Mod
 	public override void Entry(IModHelper helper)
 	{
 		Config = helper.ReadConfig<ModConfig>();
+		if (Config.EnableMod == false) {
+			Monitor.Log("Mod is disabled. No bonus will be applied.", LogLevel.Debug);
+			return;
+		}
 		ConfigMenu menu = new(Monitor, ModManifest, helper, Config);
 		helper.Events.GameLoop.GameLaunched += (sender, e) => menu.Setup();
+
 
 		SellingBonus = new(Monitor, ModManifest, helper, Config);
 		EatingBonus = new(Monitor, ModManifest, helper, Config);
