@@ -24,6 +24,7 @@ internal class ModEntry : Mod
 	{
 		Config = helper.ReadConfig<ModConfig>();
 		if (Config.EnableMod == false) {
+			// TODO: This won't work with GMCM and toggling off after game is booted
 			Monitor.Log("Mod is disabled. No bonus will be applied.", LogLevel.Debug);
 			return;
 		}

@@ -1,0 +1,10 @@
+{
+  "Name": "Stardew Shuffle",
+  "Author": "Tocseoj",
+  "Version": "0.1.0",
+  "Description": "A trading card game thats all the rage in Pelican Town!",
+  "UniqueID": "Tocseoj.StardewShuffle",
+  "EntryDll": "StardewShuffle.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": [""]
+}
