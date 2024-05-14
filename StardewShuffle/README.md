@@ -11,6 +11,6 @@ Lorem ipsum... This is a card game that lets you play against the villagers of P
 
 v0.1.0 - Initial release
 
-_Image goes here_
+- _Image goes here_
 
 > Source Code: <https://github.com/Tocseoj/StardewValleyMods>
