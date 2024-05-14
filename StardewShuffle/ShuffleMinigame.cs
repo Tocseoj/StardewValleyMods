@@ -13,9 +13,10 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 {
 	private bool quitMinigame = false;
 	private Texture2D backgroundSprite = null!;
-	public int gameWidth = 160;
+	private Texture2D springCrops = null!;
+	public int gameWidth = 320; // Hardcoded size of assets/StardewShufflePlayingTable.png
 
-	public int gameHeight = 80;
+	public int gameHeight = 160; // Hardcoded size of assets/StardewShufflePlayingTable.png
 	private Vector2 upperLeft = Vector2.Zero;
 	private List<int[]> playerCards = null!;
 	public void Start()
@@ -26,6 +27,7 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		}
 		quitMinigame = false;
 		backgroundSprite = Helper.ModContent.Load<Texture2D>("assets/StardewShufflePlayingTable.png");
+		springCrops = Game1.content.Load<Texture2D>("Maps\\springobjects");
 		changeScreenSize();
 		playerCards ??= [[1, 400], [2, 400], [3, 400], [4, 400], [5, 400]];
 		Game1.currentMinigame = this;
@@ -155,24 +157,15 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 	public void draw(SpriteBatch b)
 	{
 		b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+		b.Draw(Game1.staminaRect, new Rectangle(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height), new Color(234, 145, 78));
 		b.Draw(backgroundSprite, upperLeft, backgroundSprite.Bounds, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 1f);
 		// Draw cards
-		Vector2 start = new(128f, Game1.graphics.GraphicsDevice.Viewport.Height - 320);
-		int total = 0;
+		var xOffset = 16;
+		var yOffset = 16;
 		foreach (int[] i in playerCards) {
-			int cardHeight = 144;
-			if (i[1] > 0) {
-				cardHeight = (int)(Math.Abs(i[1] - 200f) / 200f * 144f);
-			}
-			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, (i[1] > 200 || i[1] == -1) ? new Rectangle(399, 396, 15, 15) : new Rectangle(384, 396, 15, 15), (int)start.X, (int)start.Y + 72 - cardHeight / 2, 96, cardHeight, Color.White, 4f);
-			if (i[1] == 0) {
-				SpriteText.drawStringHorizontallyCenteredAt(b, i[0].ToString() ?? "", (int)start.X + 48 - 8 + 4, (int)start.Y + 72 - 16);
-				Monitor.Log($"Drawing card {i[0]} at {start.X}, {start.Y}");
-			}
-			start.X += 112f;
-			if (i[1] == 0) {
-				total += i[0];
-			}
+			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(384, 396, 15, 15), (int)upperLeft.X + xOffset, (int)upperLeft.Y + yOffset, 96, 144, Color.White, 4f);
+			b.Draw(springCrops, upperLeft + new Vector2(xOffset, yOffset) + new Vector2(32f, 32f), new Rectangle(224, 160, 16, 16), Color.White, 0f, Vector2.Zero, 8f, SpriteEffects.None, 1f);
+			xOffset += 96;
 		}
 		if (Game1.IsMultiplayer) {
 			Utility.drawTextWithColoredShadow(b, Game1.getTimeOfDayString(Game1.timeOfDay), Game1.dialogueFont, new Vector2(Game1.graphics.GraphicsDevice.Viewport.Width - Game1.dialogueFont.MeasureString(Game1.getTimeOfDayString(Game1.timeOfDay)).X - 16f, Game1.graphics.GraphicsDevice.Viewport.Height - Game1.dialogueFont.MeasureString(Game1.getTimeOfDayString(Game1.timeOfDay)).Y - 10f), Color.White, Color.Black * 0.2f);
