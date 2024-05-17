@@ -1,5 +1,7 @@
 ﻿using StardewModdingAPI;
 using StardewModdingAPI.Events;
+using StardewValley;
+using StardewValley.Minigames;
 
 namespace Tocseoj.Stardew.StardewShuffle;
 internal class ModEntry : Mod
@@ -16,6 +18,7 @@ internal class ModEntry : Mod
 		}
     ConfigMenu menu = new(Monitor, ModManifest, helper, Config);
 		helper.Events.GameLoop.GameLaunched += (sender, e) => menu.Setup();
+		helper.Events.Input.ButtonPressed += OnButtonPressed;
 
 		ShuffleMinigame = new(Monitor, ModManifest, helper, Config);
 		ShuffleMinigame.AddConsoleCommand();
@@ -26,5 +29,16 @@ internal class ModEntry : Mod
 	{
 		Monitor.Log($"Asset requested: {e.NameWithoutLocale}");
 		// TODO: Add custom assets here
+	}
+
+	private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+	{
+		if (!Context.IsWorldReady)
+			return;
+
+		if (e.Button == SButton.G)
+			ShuffleMinigame.Start();
+		else if (e.Button == SButton.J)
+			Game1.currentMinigame = new CalicoJack();
 	}
 }
