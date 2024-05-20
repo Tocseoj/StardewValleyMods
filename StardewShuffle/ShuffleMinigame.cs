@@ -21,33 +21,74 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 	const int GAME_HEIGHT = 160; // Hardcoded size of assets/StardewShufflePlayingTable.png
 
 	const float SCALE = 4f;
+	private readonly float CropScale = 2f;
+	private readonly Rectangle frontOfCardSourceRect = new(384, 396, 15, 15);
+	private readonly Rectangle backOfCardSourceRect = new(399, 396, 15, 15);
 	// 60x76 56x76 52x76 56x76
-	private readonly List<Rectangle> cardSlots = [
+	private List<Rectangle> inPlayRects = [
 		// Top row
-		new(45, 0, 52, 76),
-		new(108, 0, 52, 76),
-		new(166, 0, 52, 76),
-		new(224, 0, 52, 76),
+		new(49, 3, 44, 70),
+		new(112, 3, 44, 70),
+		new(170, 3, 44, 70),
+		new(228, 3, 44, 70),
 		// Bottom row
-		new(45, 84, 52, 76),
-		new(108, 84, 52, 76),
-		new(166, 84, 52, 76),
-		new(224, 84, 52, 76),
+		new(49, 87, 44, 70),
+		new(112, 87, 44, 70),
+		new(170, 87, 44, 70),
+		new(228, 87, 44, 70),
 	];
-	private List<Rectangle> scaledCardSlots = null!;
+	// private readonly Rectangle playerDeckRect = new(292, 63, 29, 52);
+	private Rectangle playerDeckRect = new(292, 63, 70, 44);
+	private Vector2 playerHandPoint = new(100, 200);
+	private Rectangle opponentDeckRect = new(-42, 47, 70, 44);
+	private Vector2 opponentHandPoint = new(300, 0);
+	private Rectangle scaledPlayerDeckRect = Rectangle.Empty;
+	private Vector2 scaledPlayerHandPoint = Vector2.Zero;
+	private Rectangle scaledOpponentDeckRect = Rectangle.Empty;
+	private Vector2 scaledOpponentHandPoint = Vector2.Zero;
+	private List<Rectangle> scaledInPlayRects = null!;
 	private Rectangle scaledGameRect = Rectangle.Empty;
-	private Vector2 upperLeft = Vector2.Zero;
-	private List<int[]> playerCards = null!;
+	private Rectangle scaledWindowRect = Rectangle.Empty;
+	private Vector2 upperLeft = Vector2.Zero; // unused
+	private List<int[]> playerCards = null!; // example from CalicoJack.cs
 
-	private Dictionary<string, Texture2D> cardTextures = [];
-	private class Card
-	{
-		public Character? owner;
-		public Rectangle? sourceRect;
-		public string? texturePath;
-		public string name = "";
-		public int goldValue = 0;
+	private Dictionary<string, Texture2D> cardTextures = []; // unused
+	private class Participant() {
+		public int Money = 0;
 	}
+	private class GameState() {
+		public Participant Player = new();
+		public Participant Opponent = new();
+	}
+	private class Card(SObject item, bool flipped = false, string? name = null, string? description = null, int? price = null)
+	{
+		public SObject Item = item;
+		private readonly string? name = name;
+		public string Name {
+			get { return name ?? Item.DisplayName; }
+		}
+		private readonly string? description = description;
+		public string Description {
+			get { return description ?? Item.getDescription(); }
+		}
+		private readonly int? price = price;
+		public int Price {
+			get { return price ?? Item.Price; }
+		}
+
+		public bool Flipped = flipped;
+	}
+	// private List<ValueTuple<Card?, Rectangle>> table = null!;
+	private List<Card> playerDeck = [];
+	private List<Card> playerHand = [];
+	private List<Card> playerDiscardPile = [];
+	private List<Card?> playerCardsInPlay = [null, null, null, null];
+	private Card? heldCard = null;
+	private List<Card> opponentDeck = [];
+	private List<Card> opponentHand = [];
+	private List<Card> opponentDiscardPile = [];
+	private List<Card?> opponentCardsInPlay = [null, null, null, null];
+	private GameState gameState = new();
 	public void Start()
 	{
 		if (!Context.IsWorldReady) {
@@ -59,6 +100,26 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		springCrops = Game1.content.Load<Texture2D>("Maps\\springobjects");
 		changeScreenSize();
 		playerCards ??= [[1, 400], [2, 400], [3, 400], [4, 400], [5, 400]];
+		opponentCardsInPlay = [null, new Card(new SObject("190", 1, false, -1, SObject.lowQuality)), null, null];
+		playerCardsInPlay = [null, null, new Card(new("254", 1, false, -1, SObject.lowQuality)), new Card(new("254", 1, false, -1, SObject.lowQuality))];
+		playerHand = [
+			new Card(new("479", 1, false, -1, SObject.lowQuality)),
+			new Card(new("479", 1, false, -1, SObject.lowQuality)),
+			new Card(new("479", 1, false, -1, SObject.lowQuality)),
+		];
+		opponentHand = [
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+			new Card(new("474", 1, false, -1, SObject.lowQuality), true),
+		];
+		gameState = new();
 		Game1.currentMinigame = this;
 	}
 	public void AddConsoleCommand()
@@ -128,6 +189,37 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 			cardTextures[path] = Helper.ModContent.Load<Texture2D>(path);
 		return cardTextures[path];
 	}
+
+	private void DrawCard(SpriteBatch b, Card c, Vector2 v) {
+		DrawCard(b, c, new Rectangle((int)v.X, (int)v.Y, (int)(44 * SCALE), (int)(70 * SCALE)));
+	}
+	private void DrawCard(SpriteBatch b, Card c, Rectangle r)
+	{
+		if (c.Flipped) {
+			// Card frame
+			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, backOfCardSourceRect, r.Left, r.Top, r.Width, r.Height, Color.White, SCALE);
+		}
+		else {
+			// Card frame
+			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, frontOfCardSourceRect, r.Left, r.Top, r.Width, r.Height, Color.White, SCALE);
+			// Sprite
+			c.Item.drawInMenu(b, r.Center.ToVector2() - new Vector2(32,32), CropScale);
+			// Title
+			if (c.Name.Contains("Seeds")) {
+				// string cropName = c.Name[..^6];
+				SpriteText.drawStringHorizontallyCenteredAt(b, c.Name.First() + "." + "Seed", r.Center.X + 6, r.Top + 28);
+			}
+			else if (c.Name.Length > 6) {
+				SpriteText.drawStringHorizontallyCenteredAt(b, c.Name[..6] + ".", r.Center.X + 6, r.Top + 28);
+			}
+			else {
+				SpriteText.drawStringHorizontallyCenteredAt(b, c.Name, r.Center.X, r.Top + 28);
+			}
+			// Price
+			SpriteText.drawStringHorizontallyCenteredAt(b, c.Price.ToString(), r.Center.X, r.Bottom - 74);
+			b.Draw(Game1.debrisSpriteSheet, new Vector2(r.Center.X + 55, r.Bottom - 50), Game1.getSourceRectForStandardTileSheet(Game1.debrisSpriteSheet, 8, 16, 16), Color.White, 0f, new Vector2(8f, 8f), 4f, SpriteEffects.None, 0.95f);
+		}
+	}
 	public bool tick(GameTime time)
 	{
 		if (time.TotalGameTime.TotalSeconds % 5 < 0.0001)
@@ -135,6 +227,7 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		if (quitMinigame)
 			unload();
 
+		// for flipping card animation
 		for (int k = 0; k < playerCards.Count; k++)
 		{
 			if (playerCards[k][1] > 0)
@@ -161,7 +254,81 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 	}
 	public void receiveLeftClick(int x, int y, bool playSound = true)
 	{
+		bool actionedOnThisClick = false;
 		Monitor.Log($"Received left click at {x}, {y}. Playing sound: {playSound}");
+		if (scaledPlayerDeckRect.Contains(x, y)) {
+			Monitor.Log("Clicked player deck");
+			playerHand.Add(new Card(new("479", 1, false, -1, SObject.lowQuality)));
+			actionedOnThisClick = true;
+		}
+		else if (scaledOpponentDeckRect.Contains(x, y)) {
+			Monitor.Log("Clicked opponent deck");
+			opponentHand.Add(new Card(new("474", 1, false, -1, SObject.lowQuality), true));
+			actionedOnThisClick = true;
+		}
+		else {
+			List<Card?> cardsInPlay = [..opponentCardsInPlay, ..playerCardsInPlay];
+			for (int i = 0; i < scaledInPlayRects.Count; i++) {
+				Rectangle r = scaledInPlayRects[i];
+				if (r.Contains(x, y)) {
+					Card? c = cardsInPlay[i];
+					if (c != null && heldCard == null) {
+						// Grab card
+						// Monitor.Log($"Picked up card {c.Name}");
+						// heldCard = c;
+						// if (i < 4) {
+						// 	opponentCardsInPlay[i] = null;
+						// }
+						// else {
+						// 	playerCardsInPlay[i - 4] = null;
+						// }
+						// Sell card
+						Monitor.Log($"Sold card {c.Name}");
+						if (i < 4) {
+							opponentCardsInPlay[i] = null;
+							gameState.Opponent.Money += c.Price;
+						}
+						else {
+							playerCardsInPlay[i - 4] = null;
+							gameState.Player.Money += c.Price;
+						}
+						actionedOnThisClick = true;
+					}
+					else if (c == null && heldCard != null) {
+						// Place card
+						Monitor.Log($"Placed card {heldCard.Name}");
+						if (i < 4) {
+							opponentCardsInPlay[i] = heldCard;
+						}
+						else {
+							playerCardsInPlay[i - 4] = heldCard;
+						}
+						heldCard = null;
+						actionedOnThisClick = true;
+					}
+				}
+			}
+			for (int i = 0; i < playerHand.Count; i++) {
+				Card c = playerHand[i];
+				Rectangle r = new(scaledWindowRect.Left + 50 + i * 100, scaledWindowRect.Bottom - 75, (int)(44 * SCALE), (int)(70 * SCALE));
+				if (r.Contains(x, y)) {
+					if (!actionedOnThisClick && heldCard == null) {
+						// Grab card
+						Monitor.Log($"Picked up card {c.Name}");
+						heldCard = c;
+						playerHand.RemoveAt(i);
+						actionedOnThisClick = true;
+					}
+					else if (!actionedOnThisClick && heldCard != null) {
+						// Place card
+						Monitor.Log($"Placed card {heldCard.Name}");
+						playerHand.Insert(i, heldCard);
+						heldCard = null;
+						actionedOnThisClick = true;
+					}
+				}
+			}
+		}
 	}
 	public void leftClickHeld(int x, int y)
 	{
@@ -192,39 +359,69 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 	public void draw(SpriteBatch b)
 	{
 		b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-		b.Draw(Game1.staminaRect, new Rectangle(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height), new Color(234, 145, 78));
+		b.Draw(Game1.staminaRect, new Rectangle(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height), new Color(234, 145, 78)); // TODO: test split screen?
 		b.Draw(backgroundSprite, scaledGameRect.Location.ToVector2(), backgroundSprite.Bounds, Color.White, 0f, Vector2.Zero, SCALE, SpriteEffects.None, 1f);
 
-		Rectangle frontOfCardSourceRect = new(384, 396, 15, 15);
-		Rectangle backOfCardSourceRect = new(399, 396, 15, 15);
-		Rectangle melonCardSourceRect = new(224, 160, 16, 16);
-		Rectangle cauliflowerCardSourceRect = new(352, 112, 16, 16);
-		int xMargin = 16;
-		int yMargin = 12;
-		// Layer 1
-		foreach (Rectangle r in scaledCardSlots) {
-			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, frontOfCardSourceRect, r.Left + xMargin, r.Top + yMargin, r.Width - xMargin * 2, r.Height - yMargin * 2, Color.White, SCALE);
-			float CropScale = SCALE * 2;
-			b.Draw(springCrops, r.Center.ToVector2() - new Vector2(8*CropScale, 8*CropScale), cauliflowerCardSourceRect, Color.White, 0f, Vector2.Zero, CropScale, SpriteEffects.None, 1f);
+		List<Card?> cardsInPlay = [..opponentCardsInPlay, ..playerCardsInPlay];
+		// In-play layer
+		for (int i = 0; i < scaledInPlayRects.Count; i++) {
+			Rectangle r = scaledInPlayRects[i];
 
-			// Title & Cost
-			string cardName = "Cauliflower";
-			if (cardName.Length > 6) {
-				SpriteText.drawStringHorizontallyCenteredAt(b, cardName[..6] + ".", r.Center.X + 6, r.Top + 32);
-			}
-			else {
-				SpriteText.drawStringHorizontallyCenteredAt(b, cardName, r.Center.X, r.Top + 32);
-			}
-			SpriteText.drawStringHorizontallyCenteredAt(b, "250g", r.Center.X + 10, r.Bottom - 74);
+			Card? c = cardsInPlay[i];
+			if (c == null)
+				continue;
+
+			DrawCard(b, c, r);
+		}
+		// Deck piles
+		IClickableMenu.drawTextureBox(b, Game1.mouseCursors, backOfCardSourceRect, scaledPlayerDeckRect.Left, scaledPlayerDeckRect.Top, scaledPlayerDeckRect.Width, scaledPlayerDeckRect.Height, Color.White, SCALE);
+		IClickableMenu.drawTextureBox(b, Game1.mouseCursors, backOfCardSourceRect, scaledOpponentDeckRect.Left, scaledOpponentDeckRect.Top, scaledOpponentDeckRect.Width, scaledOpponentDeckRect.Height, Color.PaleVioletRed, SCALE);
+		// Player Hand
+		// card dimensions: 44x70 (*SCALE)
+		for (int i = 0; i < playerHand.Count; i++) {
+			Card c = playerHand[i];
+			Rectangle r = new(scaledWindowRect.Left + 50 + i * 100, scaledWindowRect.Bottom - 100, (int)(44 * SCALE), (int)(70 * SCALE));
+			DrawCard(b, c, r);
+		}
+		for (int i = 0; i < opponentHand.Count; i++) {
+			Card c = opponentHand[i];
+			Vector2 v = new(scaledWindowRect.Right - 200 - i * 50, scaledWindowRect.Top - 200);
+			DrawCard(b, c, v);
 		}
 
-		// Layer 2
-		foreach (Rectangle r in scaledCardSlots) {
+		// Rectangle window = new(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height);
+		// IClickableMenu.drawTextureBox(b, Game1.mouseCursors, backOfCardSourceRect, scaledWindowRect.Left, scaledWindowRect.Top, scaledWindowRect.Width, scaledWindowRect.Height, Color.White, SCALE);
+
+		// UI layer
+		string playerMoney = gameState.Player.Money.ToString() + "  ";
+		SpriteText.drawStringWithScrollBackground(b, playerMoney, scaledWindowRect.Right - 80 - SpriteText.getWidthOfString(playerMoney), scaledWindowRect.Bottom - 125);
+		b.Draw(Game1.debrisSpriteSheet, new Vector2(scaledWindowRect.Right - 100, scaledWindowRect.Bottom - 98), Game1.getSourceRectForStandardTileSheet(Game1.debrisSpriteSheet, 8, 16, 16), Color.White, 0f, new Vector2(8f, 8f), 4f, SpriteEffects.None, 0.95f);
+
+		string opponentMoney = gameState.Opponent.Money.ToString() + "  ";
+		SpriteText.drawStringWithScrollBackground(b, opponentMoney, scaledWindowRect.Left + 80, scaledWindowRect.Top + 70);
+		b.Draw(Game1.debrisSpriteSheet, new Vector2(scaledWindowRect.Left + 60 + SpriteText.getWidthOfString(opponentMoney), scaledWindowRect.Top + 97), Game1.getSourceRectForStandardTileSheet(Game1.debrisSpriteSheet, 8, 16, 16), Color.White, 0f, new Vector2(8f, 8f), 4f, SpriteEffects.None, 0.95f);
+
+		// Tooltip layer
+		for (int i = 0; i < scaledInPlayRects.Count; i++) {
+			Rectangle r = scaledInPlayRects[i];
+
+			Card? c = cardsInPlay[i];
+			if (c == null)
+				continue;
+
 			if (r.Contains(Game1.getOldMouseX(), Game1.getOldMouseY())) {
-				SObject cauliflower = new("190", 1, false, -1, SObject.lowQuality);
-				IClickableMenu.drawHoverText(b, $"Can be sold to the shop", Game1.smallFont, moneyAmountToDisplayAtBottom: cauliflower.Price, boldTitleText: cauliflower.DisplayName);
+				IClickableMenu.drawHoverText(b, c.Description, Game1.smallFont, heldCard != null ? 40 : 0, heldCard != null ? 40 : 0, moneyAmountToDisplayAtBottom: c.Price, boldTitleText: c.Name);
 			}
 		}
+		for (int i = 0; i < playerHand.Count; i++) {
+			Card c = playerHand[i];
+			Rectangle r = new(scaledWindowRect.Left + 50 + i * 100, scaledWindowRect.Bottom - 75, (int)(44 * SCALE), (int)(70 * SCALE));
+			if (r.Contains(Game1.getOldMouseX(), Game1.getOldMouseY())) {
+				IClickableMenu.drawHoverText(b, c.Description, Game1.smallFont, heldCard != null ? 40 : 0, heldCard != null ? 40 : 0, moneyAmountToDisplayAtBottom: c.Price, boldTitleText: c.Name);
+			}
+		}
+
+		heldCard?.Item.drawInMenu(b, new Vector2(Game1.getOldMouseX() + 16, Game1.getOldMouseY() + 16), 1f);
 
 		// From CalicoJack.cs
 		if (Game1.IsMultiplayer) {
@@ -240,14 +437,23 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		float w = localMultiplayerWindow.Width;
 		float h = localMultiplayerWindow.Height;
 		Vector2 tmp = new Vector2(w / 2f, h / 2f) * pixel_zoom_adjustment;
+		scaledWindowRect = new(localMultiplayerWindow.X, localMultiplayerWindow.Y, (int)(w * pixel_zoom_adjustment), (int)(h * pixel_zoom_adjustment));
 		tmp.X -= GAME_WIDTH / 2 * SCALE;
 		tmp.Y -= GAME_HEIGHT / 2 * SCALE;
 		upperLeft = tmp; // no longer needed
 		scaledGameRect = new((int)tmp.X, (int)tmp.Y, (int)(GAME_WIDTH * SCALE), (int)(GAME_HEIGHT * SCALE));
-		scaledCardSlots = [];
-		foreach (Rectangle r in cardSlots) {
-			scaledCardSlots.Add(new((int)(r.X * SCALE + tmp.X), (int)(r.Y * SCALE + tmp.Y), (int)(r.Width * SCALE), (int)(r.Height * SCALE)));
+		scaledInPlayRects = [];
+		foreach (Rectangle r in inPlayRects) {
+			scaledInPlayRects.Add(new((int)(r.X * SCALE + tmp.X), (int)(r.Y * SCALE + tmp.Y), (int)(r.Width * SCALE), (int)(r.Height * SCALE)));
 		}
+		scaledPlayerDeckRect = new((int)(playerDeckRect.X * SCALE + tmp.X), (int)(playerDeckRect.Y * SCALE + tmp.Y), (int)(playerDeckRect.Width * SCALE), (int)(playerDeckRect.Height * SCALE));
+		scaledOpponentDeckRect = new((int)(opponentDeckRect.X * SCALE + tmp.X), (int)(opponentDeckRect.Y * SCALE + tmp.Y), (int)(opponentDeckRect.Width * SCALE), (int)(opponentDeckRect.Height * SCALE));
+
+		// Test
+		Rectangle window = new(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height);
+		Monitor.Log($"Window: {window}");
+		scaledPlayerHandPoint = new(window.Left + 8, window.Bottom);
+		scaledOpponentHandPoint = new(window.Right - 8, window.Top - 50 * SCALE);
 	}
 	public void unload()
 	{
