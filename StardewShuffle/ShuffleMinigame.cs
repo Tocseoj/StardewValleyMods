@@ -5,6 +5,7 @@ using StardewModdingAPI;
 using StardewValley;
 using StardewValley.BellsAndWhistles;
 using StardewValley.Extensions;
+using StardewValley.ItemTypeDefinitions;
 using StardewValley.Menus;
 using StardewValley.Minigames;
 using SObject = StardewValley.Object;
@@ -49,10 +50,12 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 	private List<Rectangle> scaledInPlayRects = null!;
 	private Rectangle scaledGameRect = Rectangle.Empty;
 	private Rectangle scaledWindowRect = Rectangle.Empty;
+	private Rectangle playerHandLocation = Rectangle.Empty;
 	private Vector2 upperLeft = Vector2.Zero; // unused
 	private List<int[]> playerCards = null!; // example from CalicoJack.cs
 
 	private Dictionary<string, Texture2D> cardTextures = []; // unused
+	private TemporaryAnimatedSpriteList animations = [];
 	private class Participant() {
 		public int Money = 0;
 	}
@@ -60,9 +63,10 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		public Participant Player = new();
 		public Participant Opponent = new();
 	}
-	private class Card(SObject item, bool flipped = false, string? name = null, string? description = null, int? price = null)
+	private class Card(SObject item, bool flipped = false, string? name = null, string? description = null, int? price = null, int? cropIndex = null)
 	{
 		public SObject Item = item;
+		public int? CropIndex = cropIndex;
 		private readonly string? name = name;
 		public string Name {
 			get { return name ?? Item.DisplayName; }
@@ -99,6 +103,7 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		backgroundSprite = Helper.ModContent.Load<Texture2D>("assets/StardewShufflePlayingTable.png");
 		springCrops = Game1.content.Load<Texture2D>("Maps\\springobjects");
 		changeScreenSize();
+		playerHandLocation = new(scaledWindowRect.Left + 30, scaledWindowRect.Bottom - 120, 420, 120);
 		playerCards ??= [[1, 400], [2, 400], [3, 400], [4, 400], [5, 400]];
 		opponentCardsInPlay = [null, new Card(new SObject("190", 1, false, -1, SObject.lowQuality)), null, null];
 		playerCardsInPlay = [null, null, new Card(new("254", 1, false, -1, SObject.lowQuality)), new Card(new("254", 1, false, -1, SObject.lowQuality))];
@@ -204,6 +209,11 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, frontOfCardSourceRect, r.Left, r.Top, r.Width, r.Height, Color.White, SCALE);
 			// Sprite
 			c.Item.drawInMenu(b, r.Center.ToVector2() - new Vector2(32,32), CropScale);
+			// Could use this for animation flourish later
+			// if (c.CropIndex != null) {
+			// 	int cropIndex = (int)c.CropIndex;
+			// 	b.Draw(Game1.cropSpriteSheet, r.Center.ToVector2() - new Vector2(32,64), Game1.getSourceRectForStandardTileSheet(Game1.cropSpriteSheet, cropIndex, 16, 32), Color.White, 0f, Vector2.Zero, SCALE, SpriteEffects.None, 0.95f);
+			// }
 			// Title
 			if (c.Name.Contains("Seeds")) {
 				// string cropName = c.Name[..^6];
@@ -255,10 +265,12 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 	public void receiveLeftClick(int x, int y, bool playSound = true)
 	{
 		bool actionedOnThisClick = false;
-		Monitor.Log($"Received left click at {x}, {y}. Playing sound: {playSound}");
+		// Monitor.Log($"Received left click at {x}, {y}. Playing sound: {playSound}");
 		if (scaledPlayerDeckRect.Contains(x, y)) {
 			Monitor.Log("Clicked player deck");
-			playerHand.Add(new Card(new("479", 1, false, -1, SObject.lowQuality)));
+			// playerHand.Add(new Card(new("479", 1, false, -1, SObject.lowQuality)));
+			string itemId = Game1.random.Next(1, 1000).ToString();
+			playerHand.Add(new Card(new(itemId, 1, false, -1, SObject.lowQuality)));
 			actionedOnThisClick = true;
 		}
 		else if (scaledOpponentDeckRect.Contains(x, y)) {
@@ -282,21 +294,59 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 						// else {
 						// 	playerCardsInPlay[i - 4] = null;
 						// }
-						// Sell card
-						Monitor.Log($"Sold card {c.Name}");
-						if (i < 4) {
-							opponentCardsInPlay[i] = null;
-							gameState.Opponent.Money += c.Price;
+						if (c.Name.Contains("Seeds")) {
+							// Grow Card
+							c.CropIndex += 1;
 						}
 						else {
-							playerCardsInPlay[i - 4] = null;
-							gameState.Player.Money += c.Price;
+							// Sell card
+							Monitor.Log($"Sold card {c.Name}");
+							Vector2 positionOfMoneyCount;
+							if (i < 4) {
+								opponentCardsInPlay[i] = null;
+								gameState.Opponent.Money += c.Price;
+								string opponentMoney = gameState.Opponent.Money.ToString() + "  ";
+								positionOfMoneyCount = new(scaledWindowRect.Left + 80, scaledWindowRect.Top + 70);
+							}
+							else {
+								playerCardsInPlay[i - 4] = null;
+								gameState.Player.Money += c.Price;
+								string playerMoney = gameState.Player.Money.ToString() + "  ";
+								positionOfMoneyCount = new(scaledWindowRect.Right - 80 - SpriteText.getWidthOfString(playerMoney), scaledWindowRect.Bottom - 125);
+							}
+							actionedOnThisClick = true;
+							// Gain money animation
+							Vector2 snappedPosition = new(r.X + 22 * SCALE, r.Y + 30 * SCALE);
+							int coins = 2 + c.Price / 50;
+							for (int j = 0; j < coins; j++)
+							{
+								animations.Add(new TemporaryAnimatedSprite("TileSheets\\debris", new Rectangle(Game1.random.Next(2) * 16, 64, 16, 16), 9999f, 1, 999, snappedPosition + new Vector2(32f, 32f), flicker: false, flipped: false)
+								{
+									alphaFade = 0.025f,
+									motion = new Vector2(Game1.random.Next(-3, 4), -4f),
+									acceleration = new Vector2(0f, 0.5f),
+									delayBeforeAnimationStart = j * 25,
+									scale = 2f
+								});
+								animations.Add(new TemporaryAnimatedSprite("TileSheets\\debris", new Rectangle(Game1.random.Next(2) * 16, 64, 16, 16), 9999f, 1, 999, snappedPosition + new Vector2(32f, 32f), flicker: false, flipped: false)
+								{
+									scale = 4f,
+									alphaFade = 0.025f,
+									delayBeforeAnimationStart = j * 50,
+									motion = Utility.getVelocityTowardPoint(new Point((int)snappedPosition.X + 32, (int)snappedPosition.Y + 32), positionOfMoneyCount, 8f),
+									acceleration = Utility.getVelocityTowardPoint(new Point((int)snappedPosition.X + 32, (int)snappedPosition.Y + 32), positionOfMoneyCount, 0.5f)
+								});
+							}
+							// TODO; play sound
 						}
-						actionedOnThisClick = true;
+
 					}
 					else if (c == null && heldCard != null) {
 						// Place card
 						Monitor.Log($"Placed card {heldCard.Name}");
+						if (heldCard.Name.Contains("Seeds")) {
+							heldCard.CropIndex = 0;
+						}
 						if (i < 4) {
 							opponentCardsInPlay[i] = heldCard;
 						}
@@ -308,35 +358,47 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 					}
 				}
 			}
+			Card? grabThisCard = null;
 			for (int i = 0; i < playerHand.Count; i++) {
 				Card c = playerHand[i];
 				Rectangle r = new(scaledWindowRect.Left + 50 + i * 100, scaledWindowRect.Bottom - 75, (int)(44 * SCALE), (int)(70 * SCALE));
 				if (r.Contains(x, y)) {
-					if (!actionedOnThisClick && heldCard == null) {
+					if (heldCard == null) {
 						// Grab card
-						Monitor.Log($"Picked up card {c.Name}");
-						heldCard = c;
-						playerHand.RemoveAt(i);
-						actionedOnThisClick = true;
+						grabThisCard = c;
 					}
-					else if (!actionedOnThisClick && heldCard != null) {
-						// Place card
-						Monitor.Log($"Placed card {heldCard.Name}");
-						playerHand.Insert(i, heldCard);
+					// else if (!actionedOnThisClick && heldCard != null) {
+					// 	// Place card in hand
+					// 	Monitor.Log($"Placed card {heldCard.Name}");
+					// 	playerHand.Insert(i, heldCard);
+					// 	heldCard = null;
+					// 	actionedOnThisClick = true;
+					// }
+				}
+			}
+			if (grabThisCard != null) {
+				Monitor.Log($"Picked up card {grabThisCard.Name}");
+				playerHand.Remove(grabThisCard);
+				heldCard = grabThisCard;
+				actionedOnThisClick = true;
+			}
+			if (!actionedOnThisClick && heldCard != null) {
+				if (playerHandLocation.Contains(x, y)) {
+					Monitor.Log("Clicked player hand");
+					playerHand.Add(heldCard);
 						heldCard = null;
-						actionedOnThisClick = true;
-					}
+					actionedOnThisClick = true;
 				}
 			}
 		}
 	}
 	public void leftClickHeld(int x, int y)
 	{
-		Monitor.Log($"Left click held at {x}, {y}");
+		// Monitor.Log($"Left click held at {x}, {y}");
 	}
 	public void releaseLeftClick(int x, int y)
 	{
-		Monitor.Log($"Released left click at {x}, {y}");
+		// Monitor.Log($"Released left click at {x}, {y}");
 	}
 	public void receiveRightClick(int x, int y, bool playSound = true)
 	{
@@ -392,6 +454,18 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		// Rectangle window = new(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height);
 		// IClickableMenu.drawTextureBox(b, Game1.mouseCursors, backOfCardSourceRect, scaledWindowRect.Left, scaledWindowRect.Top, scaledWindowRect.Width, scaledWindowRect.Height, Color.White, SCALE);
 
+		// Helper overlay
+		if (heldCard != null) {
+			if (playerHand.Count > 3) {
+				// between 100 and 110
+				playerHandLocation.Width = 110 + 103 * playerHand.Count;
+			}
+			else {
+				playerHandLocation.Width = 420;
+			}
+			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(375, 357, 3, 3), playerHandLocation.Left, playerHandLocation.Top, playerHandLocation.Width, playerHandLocation.Height, Color.LightCoral, SCALE, drawShadow: false);
+		}
+
 		// UI layer
 		string playerMoney = gameState.Player.Money.ToString() + "  ";
 		SpriteText.drawStringWithScrollBackground(b, playerMoney, scaledWindowRect.Right - 80 - SpriteText.getWidthOfString(playerMoney), scaledWindowRect.Bottom - 125);
@@ -402,6 +476,7 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 		b.Draw(Game1.debrisSpriteSheet, new Vector2(scaledWindowRect.Left + 60 + SpriteText.getWidthOfString(opponentMoney), scaledWindowRect.Top + 97), Game1.getSourceRectForStandardTileSheet(Game1.debrisSpriteSheet, 8, 16, 16), Color.White, 0f, new Vector2(8f, 8f), 4f, SpriteEffects.None, 0.95f);
 
 		// Tooltip layer
+		// TODO; make sure when cards overlap we are showing the correct tooltip
 		for (int i = 0; i < scaledInPlayRects.Count; i++) {
 			Rectangle r = scaledInPlayRects[i];
 
@@ -413,14 +488,32 @@ internal class ShuffleMinigame(IMonitor Monitor, IManifest ModManifest, IModHelp
 				IClickableMenu.drawHoverText(b, c.Description, Game1.smallFont, heldCard != null ? 40 : 0, heldCard != null ? 40 : 0, moneyAmountToDisplayAtBottom: c.Price, boldTitleText: c.Name);
 			}
 		}
+		Card? hoveringCard = null;
 		for (int i = 0; i < playerHand.Count; i++) {
 			Card c = playerHand[i];
 			Rectangle r = new(scaledWindowRect.Left + 50 + i * 100, scaledWindowRect.Bottom - 75, (int)(44 * SCALE), (int)(70 * SCALE));
 			if (r.Contains(Game1.getOldMouseX(), Game1.getOldMouseY())) {
-				IClickableMenu.drawHoverText(b, c.Description, Game1.smallFont, heldCard != null ? 40 : 0, heldCard != null ? 40 : 0, moneyAmountToDisplayAtBottom: c.Price, boldTitleText: c.Name);
+				hoveringCard = c;
+			}
+		}
+		if (hoveringCard != null) {
+			IClickableMenu.drawHoverText(b, hoveringCard.Description, Game1.smallFont, heldCard != null ? 40 : 0, heldCard != null ? 40 : 0, moneyAmountToDisplayAtBottom: hoveringCard.Price, boldTitleText: hoveringCard.Name);
+		}
+
+		// Sell animation
+		for (int j = this.animations.Count - 1; j >= 0; j--)
+		{
+			if (this.animations[j].update(Game1.currentGameTime))
+			{
+				this.animations.RemoveAt(j);
+			}
+			else
+			{
+				this.animations[j].draw(b, localPosition: true);
 			}
 		}
 
+		// Held item on cursor
 		heldCard?.Item.drawInMenu(b, new Vector2(Game1.getOldMouseX() + 16, Game1.getOldMouseY() + 16), 1f);
 
 		// From CalicoJack.cs
