@@ -37,6 +37,7 @@ namespace Tocseoj.Stardew.LadderLight {
 
 			helper.Events.World.LocationListChanged += OnLocationListChanged;
 			helper.Events.GameLoop.OneSecondUpdateTicked += OnOneSecondUpdateTicked;
+			helper.Events.Player.Warped += OnPlayerWarped;
 		}
 
 
@@ -54,7 +55,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					return;
 				}
 				KeyValuePair<Point, bool> ladder = ladderQueue[0];
-				Monitor.Log("Delayed Add.", LogLevel.Debug);
+				Monitor.Log("Delayed Add.", LogLevel.Trace);
 				OnLadderLocationAdded(ladder.Key, ladder.Value);
 				ladderQueue.RemoveAt(0);
 			}
@@ -65,6 +66,7 @@ namespace Tocseoj.Stardew.LadderLight {
 		/// <param name="e">The event data.</param>
 		private void OnLocationListChanged(object? sender, LocationListChangedEventArgs e)
 		{
+			// TODO; when you warp away from mines for some reason it re processes all the previous mine levels and adds lights for each of their ladders
 			// go through each location in e.Added and see if its a mine
 			foreach (GameLocation location in e.Added)
 			{
@@ -79,7 +81,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					IReflectedField<NetPointDictionary<bool, NetBool>> generatedLadders = Helper.Reflection.GetField<NetPointDictionary<bool, NetBool>>(location, "createLadderDownEvent", false);
 					if (generatedLadders != null) {
 						WeakReference<NetPointDictionary<bool, NetBool>> weakRef = new(generatedLadders.GetValue());
-            if(weakRef.TryGetTarget(out NetPointDictionary<bool, NetBool>? target)) {
+            if (weakRef.TryGetTarget(out NetPointDictionary<bool, NetBool>? target)) {
 							if (target != null) {
 								target.OnValueAdded += OnLadderLocationAdded;
 								laddersPresent = target.Count();
@@ -93,7 +95,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					IReflectedField<NetVector2Dictionary<bool, NetBool>> placedLadders = Helper.Reflection.GetField<NetVector2Dictionary<bool, NetBool>>(location, "createLadderAtEvent", false);
 					if (placedLadders != null) {
 						WeakReference<NetVector2Dictionary<bool, NetBool>> weakRef = new(placedLadders.GetValue());
-						if(weakRef.TryGetTarget(out NetVector2Dictionary<bool, NetBool>? target)) {
+						if (weakRef.TryGetTarget(out NetVector2Dictionary<bool, NetBool>? target)) {
 							if (target != null) {
 								target.OnValueAdded += OnLadderLocationAdded;
 							}
@@ -101,11 +103,20 @@ namespace Tocseoj.Stardew.LadderLight {
 					}
 					// Debug
 					string debugMessage = $"Level {shaft.mineLevel}: {laddersPresent} ladders present.";
-					Monitor.Log(debugMessage, LogLevel.Debug);
+					Monitor.Log(debugMessage, LogLevel.Trace);
 					if (Config.DebugMode)
 						Game1.addHUDMessage(new HUDMessage(debugMessage, HUDMessage.newQuest_type));
 				}
 			}
+		}
+
+		/// <inheritdoc cref="IPlayerEvents.Warped"/>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The event data.</param>
+		private void OnPlayerWarped(object? sender, WarpedEventArgs e)
+		{
+			// Fixes bug where  all previously spawned lights would show when warping out
+			ladderQueue.Clear();
 		}
 
 		private void OnLadderLocationAdded(Point point, bool shaft) {
@@ -114,7 +125,7 @@ namespace Tocseoj.Stardew.LadderLight {
 		private void OnLadderLocationAdded(Vector2 point, bool shaft) {
 			// Debug
 			string debugMessage = $"Ladder appeared at {point}!";
-			Monitor.Log(debugMessage, LogLevel.Debug);
+			Monitor.Log(debugMessage, LogLevel.Trace);
 			if (Config.DebugMode)
 				Game1.addHUDMessage(new HUDMessage(debugMessage, HUDMessage.newQuest_type));
 
@@ -144,7 +155,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					lightFade = 0
 			});
 
-			Monitor.Log("Added light.", LogLevel.Debug);
+			Monitor.Log("Added light.", LogLevel.Trace);
 		}
 	}
 
