@@ -131,6 +131,7 @@ namespace Tocseoj.Stardew.LadderLight {
 
 			// Create light source at point
 			// Idea: make animated stars come off the ladder
+			string randomId = Guid.NewGuid().ToString();
 			Game1.currentLocation.TemporarySprites.Add(
 				new TemporaryAnimatedSprite(
 					"LooseSprites\\Lighting\\lantern",
@@ -150,7 +151,7 @@ namespace Tocseoj.Stardew.LadderLight {
 					0f // rotation speed
 				) {
 					drawAboveAlwaysFront = true,
-					light = true,
+					lightId = $"Custom_LadderLight_{point.X}_{point.Y}_{randomId}",
 					lightRadius = 0.33f,
 					lightFade = 0
 			});
